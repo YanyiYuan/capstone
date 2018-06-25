@@ -1,0 +1,143 @@
+---
+title: "Data Science Capstone Milestone Report"
+author: "Yanyi Yuan"
+date: "June 12, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE,message = FALSE)
+```
+
+In this project, we performed exploratory analysis of the text data, to understand the distribution of words and relationship between the words.
+
+## 1 Data Loading
+```{r}
+library(tm)
+library(stylo)
+# READ TEXT FILE
+setwd("C:/Users/me/Documents/Coursera/capstone/Coursera-SwiftKey/final/en_US")
+con1 <- file("en_Us.blogs.txt","r")
+blogs<-readLines(con1)
+close(con1)
+
+con2 <- file("en_Us.news.txt","r")
+news<-readLines(con2)
+close(con2)
+
+con3<- file("en_Us.twitter.txt","r")
+twitter<-readLines(con3)
+close(con3)
+```
+
+## 2 Summary Statistics of Data
+2.1 Size of data file in MB:
+```{r}
+#Size of data
+setwd("C:/Users/me/Documents/Coursera/capstone/Coursera-SwiftKey/final/en_US")
+size_data_MB <- c(file.info("en_US.blogs.txt")$size,file.info("en_US.news.txt")$size,file.info("en_US.twitter.txt")$size)
+size_data_MB<- data.frame(size_data_MB)
+rownames(size_data_MB)<-c("blogs","news","twitter")
+size_data_MB <- size_data_MB/1024^2  # size of file
+size_data_MB
+```
+
+2.2 Number of lines in each file:
+```{r}
+lines <- c(length(blogs),length(news),length(twitter))
+lines <- data.frame(lines)
+rownames(lines)<-c("blogs","news","twitter")
+format(lines,big.mark = ",")  #Number of lines
+```
+
+2.3 Number of words in each file:
+```{r}
+library(stringi)
+words_blogs <- stri_count_words(blogs)
+words_news <- stri_count_words(news)
+words_twitter <- stri_count_words(twitter)
+
+words <- c(sum(words_blogs),sum(words_news),sum(words_twitter))
+words <- data.frame(words)
+rownames(words)<-c("blogs","news","twitter")
+format(words,big.mark = ",")  #Number of words
+
+```
+
+## 3 Data Sampling
+Training dataset is sampled as 10 percent of the original dataset.
+```{r}
+blogsSample <- sample(blogs, length(blogs)*0.1)
+newsSample <- sample(news, length(news)*0.1)
+twitterSample <- sample(twitter, length(twitter)*0.1)
+Sample <- c(blogsSample,newsSample,twitterSample)
+```
+
+## 4 Data Cleaning
+Clean the training dataset by removing non ASCII characters, numbers, punctuations, stopwords and converting characters to lower case.
+```{r}
+#Remove non ASCII characters
+Sample<- unlist(strsplit(Sample, split=" "))
+
+Index<- grep("Sample", iconv(Sample, "latin1", "ASCII", sub="Sample"))
+Sample<- Sample[ - Index]
+
+Sample<- paste(Sample, collapse = " ")
+
+#Convert Character to Corpus
+Sample_corpus<- Corpus(VectorSource(Sample))
+
+#Convert characters to lower case
+Sample_corpus<- tm_map(Sample_corpus, tolower)
+
+#Remove punctuation
+Sample_corpus<- tm_map(Sample_corpus, removePunctuation)
+
+#Remove numbers
+Sample_corpus<- tm_map(Sample_corpus, removeNumbers)
+
+
+#Remove stop words
+Sample_corpus<- tm_map(Sample_corpus, removeWords, stopwords("english"))
+
+#Remove white space
+Sample_corpus <- tm_map(Sample_corpus, stripWhitespace)
+```
+
+
+## 5 Exploratory Data Analysis 
+We run analysis to find the most frequent unigram, bigram and trigram.
+```{r}
+
+#Count the freqency of one, two and three ngrams
+Sample_txt <- Sample_corpus[[1]]$content
+Sample_txt <- txt.to.words(Sample_txt)
+
+Unigram<-data.frame(table(make.ngrams(Sample_txt, ngram.size = 1)))
+Bigram<-data.frame(table(make.ngrams(Sample_txt, ngram.size = 2)))
+Trigram<-data.frame(table(make.ngrams(Sample_txt, ngram.size = 3)))
+
+#Order by the frequency of one, two and three ngrams
+
+Unigram <- Unigram[order(Unigram$Freq,decreasing = TRUE),]
+Bigram <- Bigram[order(Bigram$Freq,decreasing = TRUE),]
+Trigram <- Trigram[order(Trigram$Freq,decreasing = TRUE),]
+
+#plot frequency bar chart
+library(ggplot2)
+ggplot(Unigram[1:20,],aes(x=reorder(Unigram$Var1[1:20],-Unigram$Freq[1:20]),y=Unigram$Freq[1:20]))+geom_bar(stat="identity")+ labs(x="Words",y="Frequency", title="Most common unigrams in text sample")
+
+ggplot(Bigram[1:20,],aes(x=reorder(Bigram$Var1[1:20],-Bigram$Freq[1:20]),y=Bigram$Freq[1:20]))+geom_bar(stat="identity")+ labs(x="Words",y="Frequency", title="Most common Bigrams in text sample")+theme(axis.text.x=element_text(angle=45,hjust=1))
+
+ggplot(Trigram[1:20,],aes(x=reorder(Trigram$Var1[1:20],-Trigram$Freq[1:20]),y=Trigram$Freq[1:20]))+geom_bar(stat="identity")+ labs(x="Words",y="Frequency", title="Most common Trigrams in text sample")+theme(axis.text.x=element_text(angle=45,hjust=1))
+```
+
+
+## 6 Next Step
+We will run the following tasks in the next steps:
+1. Build basic n-gram model using the exploratory analysis performed. The n-gram model is used to predict the next word based on the previous 1, 2, or 3 words.
+
+
+2. Build Katz's back-off model to handle unseen n-grams. In some cases people will want to type a combination of words that does not appear in the corpora. Build Katz's back-off model to handle cases where a particular n-gram isn't observed.
+
+Both model will be built using Shiny app.
